@@ -8,8 +8,9 @@ type BaseResponse struct {
 }
 
 type ErrorResponse struct {
-	Error     string `json:"error"`
-	RequestID string `json:"request_id"`
+	Error     string      `json:"error"`
+	RequestID string      `json:"request_id"`
+	Details   interface{} `json:"details,omitempty"`
 }
 
 type MessageResponse struct {

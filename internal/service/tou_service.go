@@ -50,6 +50,36 @@ func (s *touService) ReplaceSchedule(chargerID string, input bo.UpsertTOUSchedul
 		effectiveTo = &parsedTo
 	}
 
+	overlappingRanges, err := s.touRepo.ListOverlappingSchedules(chargerID, effectiveFrom, effectiveTo, &effectiveFrom)
+	if err != nil {
+		return err
+	}
+	if len(overlappingRanges) > 0 {
+		existing := make([]ScheduleRange, 0, len(overlappingRanges))
+		for _, item := range overlappingRanges {
+			rangeItem := ScheduleRange{
+				EffectiveFrom: item.EffectiveFrom.Format("2006-01-02"),
+			}
+			if item.EffectiveTo != nil {
+				rangeItem.EffectiveTo = item.EffectiveTo.Format("2006-01-02")
+			}
+			existing = append(existing, rangeItem)
+		}
+
+		proposed := ScheduleRange{
+			EffectiveFrom: effectiveFrom.Format("2006-01-02"),
+		}
+		if effectiveTo != nil {
+			proposed.EffectiveTo = effectiveTo.Format("2006-01-02")
+		}
+
+		return &OverlappingScheduleError{
+			ChargerID: chargerID,
+			Proposed:  proposed,
+			Existing:  existing,
+		}
+	}
+
 	incoming, err := validateAndConvertPeriods(chargerID, effectiveFrom, effectiveTo, input.Periods)
 	if err != nil {
 		return err

@@ -39,14 +39,29 @@ func (h *TOUHandler) UpsertSchedule(c *gin.Context) {
 	if err := h.touService.ReplaceSchedule(chargerID, mapper.ToBOUpsertTOUScheduleInput(req)); err != nil {
 		h.logger.Error("failed to upsert tou schedule", "request_id", requestID, "charger_id", chargerID, "error", err)
 		status := http.StatusBadRequest
+		errorResponse := dto.ErrorResponse{
+			Error:     err.Error(),
+			RequestID: requestID,
+		}
 		if service.IsNotFoundError(err) {
 			status = http.StatusNotFound
 		}
+		if service.IsOverlappingScheduleError(err) {
+			status = http.StatusConflict
+			overlapErr := service.AsOverlappingScheduleError(err)
+			errorResponse.Details = map[string]interface{}{
+				"charger_id": chargerID,
+			}
+			if overlapErr != nil {
+				errorResponse.Details = map[string]interface{}{
+					"charger_id": overlapErr.ChargerID,
+					"proposed":   overlapErr.Proposed,
+					"existing":   overlapErr.Existing,
+				}
+			}
+		}
 
-		c.JSON(status, dto.ErrorResponse{
-			Error:     err.Error(),
-			RequestID: requestID,
-		})
+		c.JSON(status, errorResponse)
 		return
 	}
 	h.logger.Info("upserted tou schedule successfully",

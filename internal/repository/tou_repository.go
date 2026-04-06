@@ -12,6 +12,7 @@ import (
 type TOURepository interface {
 	ReplaceDailySchedule(chargerID string, effectiveFrom time.Time, effectiveTo *time.Time, periods []models.TOURatePeriod) error
 	GetPeriodsByEffectiveFrom(chargerID string, effectiveFrom time.Time) ([]models.TOURatePeriod, error)
+	ListOverlappingSchedules(chargerID string, effectiveFrom time.Time, effectiveTo *time.Time, excludeEffectiveFrom *time.Time) ([]models.TOURatePeriod, error)
 	GetApplicablePeriods(chargerID string, date time.Time) ([]models.TOURatePeriod, time.Time, error)
 	GetPeriodForMinute(chargerID string, date time.Time, minute int) (*models.TOURatePeriod, error)
 }
@@ -48,6 +49,36 @@ func (r *touRepository) GetPeriodsByEffectiveFrom(chargerID string, effectiveFro
 	}
 
 	return periods, nil
+}
+
+func (r *touRepository) ListOverlappingSchedules(
+	chargerID string,
+	effectiveFrom time.Time,
+	effectiveTo *time.Time,
+	excludeEffectiveFrom *time.Time,
+) ([]models.TOURatePeriod, error) {
+	query := r.db.
+		Model(&models.TOURatePeriod{}).
+		Select("effective_from, effective_to").
+		Where("charger_id = ?", chargerID).
+		Where("effective_to IS NULL OR effective_to >= ?", effectiveFrom)
+
+	if effectiveTo != nil {
+		query = query.Where("effective_from <= ?", *effectiveTo)
+	}
+	if excludeEffectiveFrom != nil {
+		query = query.Where("effective_from <> ?", *excludeEffectiveFrom)
+	}
+
+	var ranges []models.TOURatePeriod
+	if err := query.
+		Group("effective_from, effective_to").
+		Order("effective_from ASC").
+		Find(&ranges).Error; err != nil {
+		return nil, err
+	}
+
+	return ranges, nil
 }
 
 func (r *touRepository) GetApplicablePeriods(chargerID string, date time.Time) ([]models.TOURatePeriod, time.Time, error) {

@@ -187,6 +187,28 @@ Get TOU rate by date and time:
 curl --request GET "$BASE_URL/api/v1/chargers/charger-001/tou-rate?date=2026-04-15&time=14:30"
 ```
 
+Overlap conflict response (HTTP `409`) example:
+
+```json
+{
+  "error": "overlapping effective_from/effective_to already exists for charger charger-001",
+  "request_id": "....",
+  "details": {
+    "charger_id": "charger-001",
+    "proposed": {
+      "effective_from": "2026-02-06",
+      "effective_to": "2026-11-06"
+    },
+    "existing": [
+      {
+        "effective_from": "2026-01-06",
+        "effective_to": "2026-12-06"
+      }
+    ]
+  }
+}
+```
+
 ### TOU bulk jobs
 
 Create sample CSV:
